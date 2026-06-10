@@ -30,6 +30,13 @@ recon compare A.java B.java --html diff.html
 recon compare a.csv b.csv --key trade_id
 recon compare a.xlsx b.xlsx --key trade_id,date --ignore updated_at --tolerance 0.01 --html report.html
 
+# --show-matched: for mismatched records, display ALL fields (matched ones too),
+# with the mismatching cells highlighted
+recon compare a.csv b.csv --key trade_id --show-matched
+
+# Web UI: upload files and set options in the browser at http://127.0.0.1:8765
+recon serve
+
 # Pretty-print a JSON or XML file
 recon fmt messy.json
 recon fmt messy.xml -o pretty.xml

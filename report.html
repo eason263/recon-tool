@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>recon report — a.csv vs b.csv</title>
+<style>
+  body { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; margin: 24px; color: #1f2328; }
+  h1 { font-size: 20px; } h2 { font-size: 16px; margin-top: 28px; }
+  .meta { color: #59636e; font-size: 13px; margin-bottom: 20px; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 13px; font-weight: 600; }
+  .badge.ok { background: #dafbe1; color: #116329; }
+  .badge.bad { background: #ffebe9; color: #cf222e; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { border: 1px solid #d1d9e0; padding: 4px 8px; text-align: left; vertical-align: top; }
+  th { background: #f6f8fa; }
+  .summary table { width: auto; min-width: 320px; }
+  .diff td.code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: pre-wrap; word-break: break-all; width: 46%; }
+  .diff td.lineno { color: #59636e; text-align: right; width: 4%; background: #f6f8fa; font-family: ui-monospace, monospace; }
+  tr.insert td.right { background: #dafbe1; }
+  tr.delete td.left { background: #ffebe9; }
+  tr.replace td.left { background: #fff1c2; }
+  tr.replace td.right { background: #fff1c2; }
+  td.a-val { background: #ffebe9; } td.b-val { background: #dafbe1; }
+</style>
+</head>
+<body>
+<h1>Comparison report
+
+  <span class="badge bad">differences found</span>
+
+</h1>
+<div class="meta">
+  A: <strong>a.csv</strong> &nbsp;·&nbsp; B: <strong>b.csv</strong> &nbsp;·&nbsp; generated 2026-06-10 23:35:19
+</div>
+
+
+  <div class="summary">
+    <table>
+      <tr><th>Key columns</th><td>trade_id</td></tr>
+      <tr><th>Records in A</th><td>3</td></tr>
+      <tr><th>Records in B</th><td>3</td></tr>
+      <tr><th>Matched keys</th><td>2</td></tr>
+      <tr><th>Keys with mismatched fields</th><td>2</td></tr>
+      <tr><th>Only in A</th><td>1</td></tr>
+      <tr><th>Only in B</th><td>1</td></tr>
+      <tr><th>Duplicate keys (A / B)</th><td>0 / 0</td></tr>
+    </table>
+  </div>
+
+  
+  <h2>Field mismatches (3)</h2>
+  <table>
+    <tr><th>Key</th><th>Column</th><th>a.csv</th><th>b.csv</th></tr>
+    
+    <tr><td>T001</td><td>amount</td><td class="a-val">1500.00</td><td class="b-val">1500.005</td></tr>
+    
+    <tr><td>T001</td><td>updated_at</td><td class="a-val">2026-06-01</td><td class="b-val">2026-06-03</td></tr>
+    
+    <tr><td>T002</td><td>updated_at</td><td class="a-val">2026-06-01</td><td class="b-val">2026-06-03</td></tr>
+    
+  </table>
+  
+
+  
+    
+    <h2>Only in a.csv (1)</h2>
+    <table>
+      <tr><th>Key</th><th>ccy</th><th>amount</th><th>updated_at</th></tr>
+      
+      <tr><td>T003</td><td>GBP</td><td>99.99</td><td>2026-06-02</td></tr>
+      
+    </table>
+    
+  
+    
+    <h2>Only in b.csv (1)</h2>
+    <table>
+      <tr><th>Key</th><th>ccy</th><th>amount</th><th>updated_at</th></tr>
+      
+      <tr><td>T004</td><td>JPY</td><td>12000</td><td>2026-06-03</td></tr>
+      
+    </table>
+    
+  
+
+  
+    
+  
+    
+  
+
+</body>
+</html>

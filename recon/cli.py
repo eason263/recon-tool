@@ -6,11 +6,11 @@ from pathlib import Path
 import click
 from rich.console import Console
 
+from .core import CompareError, compare_paths
 from .formatters import PRETTY_FORMATTERS
-from .loaders import LoadError, load
-from .recondiff import ReconError, reconcile
+from .loaders import LoadError
+from .recondiff import ReconError, ReconResult
 from .report import render_diff_terminal, render_recon_terminal, write_html
-from .textdiff import diff_lines
 
 EXIT_SAME = 0
 EXIT_DIFF = 1
@@ -30,52 +30,32 @@ def main():
 @click.option("--ignore", "-i", help="Comma-separated columns to skip when comparing records.")
 @click.option("--tolerance", "-t", type=float, default=0.0, show_default=True,
               help="Numeric tolerance for field comparison in reconciliation mode.")
+@click.option("--show-matched", "-m", is_flag=True,
+              help="For mismatched records, show all fields (matched ones too), not just the differing columns.")
 @click.option("--html", "html_out", type=click.Path(dir_okay=False),
               help="Also write an HTML report to this path.")
-def compare(file_a, file_b, key, ignore, tolerance, html_out):
+def compare(file_a, file_b, key, ignore, tolerance, show_matched, html_out):
     """Compare FILE_A with FILE_B.
 
     Tabular files (csv/xlsx) with --key are reconciled record-by-record;
     everything else gets a pretty-formatted text diff.
     """
     console = Console()
-    a_name, b_name = Path(file_a).name, Path(file_b).name
-    if a_name == b_name:
-        a_name, b_name = str(file_a), str(file_b)
-
     try:
-        kind_a, data_a = load(file_a)
-        kind_b, data_b = load(file_b)
-    except LoadError as e:
+        result = compare_paths(file_a, file_b, key=key, ignore=ignore,
+                               tolerance=tolerance)
+    except (LoadError, ReconError, CompareError) as e:
         raise click.ClickException(str(e))
 
-    if key:
-        if kind_a != "records" or kind_b != "records":
-            raise click.ClickException(
-                "--key requires two tabular files (csv/xlsx); "
-                f"got {a_name} ({kind_a}) and {b_name} ({kind_b})"
-            )
-        keys = [c.strip() for c in key.split(",") if c.strip()]
-        ignores = [c.strip() for c in ignore.split(",")] if ignore else []
-        try:
-            result = reconcile(data_a, data_b, a_name, b_name,
-                               key_columns=keys, ignore_columns=ignores,
-                               tolerance=tolerance)
-        except ReconError as e:
-            raise click.ClickException(str(e))
-        render_recon_terminal(result, console)
+    if isinstance(result, ReconResult):
+        render_recon_terminal(result, console, show_matched=show_matched)
         same = result.reconciled
     else:
-        if kind_a == "records":
-            data_a = _records_to_lines(data_a)
-        if kind_b == "records":
-            data_b = _records_to_lines(data_b)
-        result = diff_lines(data_a, data_b, a_name, b_name)
         render_diff_terminal(result, console)
         same = result.identical
 
     if html_out:
-        write_html(result, html_out)
+        write_html(result, html_out, show_matched=show_matched)
         console.print(f"[dim]HTML report written to {html_out}[/]")
 
     sys.exit(EXIT_SAME if same else EXIT_DIFF)
@@ -104,11 +84,15 @@ def fmt(file, output):
         click.echo(pretty)
 
 
-def _records_to_lines(data: tuple[list[str], list[dict]]) -> list[str]:
-    headers, rows = data
-    lines = [",".join(headers)]
-    lines += [",".join(str(row.get(h, "")) for h in headers) for row in rows]
-    return lines
+@main.command()
+@click.option("--host", default="127.0.0.1", show_default=True)
+@click.option("--port", default=8765, show_default=True, type=int)
+def serve(host, port):
+    """Start the web UI: upload two files and configure the comparison in a browser."""
+    from .webapp import create_app
+
+    click.echo(f"recon web UI: http://{host}:{port}")
+    create_app().run(host=host, port=port)
 
 
 if __name__ == "__main__":

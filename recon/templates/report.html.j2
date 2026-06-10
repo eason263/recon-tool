@@ -21,9 +21,13 @@
   tr.replace td.left { background: #fff1c2; }
   tr.replace td.right { background: #fff1c2; }
   td.a-val { background: #ffebe9; } td.b-val { background: #dafbe1; }
+  td.status-bad { color: #cf222e; font-weight: 700; } td.status-ok { color: #59636e; }
+  tr.record-start td { border-top: 2px solid #8c959f; }
+  .back { margin-bottom: 16px; font-size: 14px; }
 </style>
 </head>
 <body>
+{% if back_url %}<div class="back"><a href="{{ back_url }}">← New comparison</a></div>{% endif %}
 <h1>Comparison report
 {% if mode == "diff" %}
   {% if r.identical %}<span class="badge ok">identical</span>{% else %}<span class="badge bad">differences found</span>{% endif %}
@@ -72,7 +76,24 @@
     </table>
   </div>
 
-  {% if r.mismatches %}
+  {% if r.mismatches and show_matched %}
+  <h2>Mismatched records — all fields ({{ r.mismatched_keys | length }} records)</h2>
+  <table>
+    <tr><th>Key</th><th>Column</th><th>{{ r.a_name }}</th><th>{{ r.b_name }}</th><th>Status</th></tr>
+    {% for k in r.mismatched_keys %}
+      {% for c in r.compared_columns %}
+      {% set bad = (k, c) in mismatch_set %}
+      <tr{% if loop.first %} class="record-start"{% endif %}>
+        <td>{% if loop.first %}{{ fmt_key(k) }}{% endif %}</td>
+        <td>{{ c }}</td>
+        <td{% if bad %} class="a-val"{% endif %}>{{ r.records_a[k].get(c) or "" }}</td>
+        <td{% if bad %} class="b-val"{% endif %}>{{ r.records_b[k].get(c) or "" }}</td>
+        {% if bad %}<td class="status-bad">✗</td>{% else %}<td class="status-ok">✓</td>{% endif %}
+      </tr>
+      {% endfor %}
+    {% endfor %}
+  </table>
+  {% elif r.mismatches %}
   <h2>Field mismatches ({{ r.mismatches | length }})</h2>
   <table>
     <tr><th>Key</th><th>Column</th><th>{{ r.a_name }}</th><th>{{ r.b_name }}</th></tr>
@@ -88,7 +109,7 @@
     <table>
       <tr><th>Key</th>{% for c in r.compared_columns %}<th>{{ c }}</th>{% endfor %}</tr>
       {% for k in keys %}
-      <tr><td>{{ fmt_key(k) }}</td>{% for c in r.compared_columns %}<td>{{ records[k].get(c, "") }}</td>{% endfor %}</tr>
+      <tr><td>{{ fmt_key(k) }}</td>{% for c in r.compared_columns %}<td>{{ records[k].get(c) or "" }}</td>{% endfor %}</tr>
       {% endfor %}
     </table>
     {% endif %}

@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>recon — compare &amp; reconcile files</title>
+<style>
+  body { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; margin: 0; background: #f6f8fa; color: #1f2328; }
+  .card { max-width: 560px; margin: 48px auto; background: #fff; border: 1px solid #d1d9e0; border-radius: 8px; padding: 28px 32px; }
+  h1 { font-size: 20px; margin-top: 0; }
+  .sub { color: #59636e; font-size: 13px; margin-bottom: 20px; }
+  label { display: block; font-weight: 600; font-size: 13px; margin: 14px 0 4px; }
+  .hint { font-weight: 400; color: #59636e; }
+  input[type="text"], input[type="number"] { width: 100%; box-sizing: border-box; padding: 6px 8px; border: 1px solid #d1d9e0; border-radius: 6px; font-size: 14px; }
+  input[type="file"] { font-size: 13px; }
+  .check { margin-top: 16px; font-size: 14px; }
+  .check label { display: inline; font-weight: 400; }
+  button { margin-top: 22px; background: #1f883d; color: #fff; border: none; border-radius: 6px; padding: 8px 18px; font-size: 14px; font-weight: 600; cursor: pointer; }
+  button:hover { background: #1a7f37; }
+  .error { background: #ffebe9; border: 1px solid #ff8182; color: #cf222e; border-radius: 6px; padding: 8px 12px; font-size: 14px; margin-bottom: 8px; }
+  fieldset { border: 1px solid #d1d9e0; border-radius: 6px; margin-top: 20px; padding: 4px 16px 16px; }
+  legend { font-size: 13px; font-weight: 600; color: #59636e; padding: 0 6px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>recon</h1>
+  <div class="sub">Compare two files (txt, java, json, xml, docx — pretty-formatted diff) or reconcile tabular data (csv, xlsx) record-by-record.</div>
+
+  {% if error %}<div class="error">{{ error }}</div>{% endif %}
+
+  <form method="post" action="/compare" enctype="multipart/form-data">
+    <label>File A</label>
+    <input type="file" name="file_a" required>
+    <label>File B</label>
+    <input type="file" name="file_b" required>
+
+    <fieldset>
+      <legend>Reconciliation options (csv / xlsx only)</legend>
+      <label>Key column(s) <span class="hint">— comma-separated; leave empty for a plain text diff</span></label>
+      <input type="text" name="key" placeholder="e.g. trade_id  or  id,date" value="{{ form.get('key', '') }}">
+      <label>Ignore columns <span class="hint">— comma-separated, skipped during comparison</span></label>
+      <input type="text" name="ignore" placeholder="e.g. updated_at" value="{{ form.get('ignore', '') }}">
+      <label>Numeric tolerance</label>
+      <input type="number" name="tolerance" step="any" min="0" placeholder="0" value="{{ form.get('tolerance', '') }}">
+      <div class="check">
+        <input type="checkbox" id="show_matched" name="show_matched" value="1" {% if form.get('show_matched') %}checked{% endif %}>
+        <label for="show_matched">Show all fields of mismatched records (matched fields too)</label>
+      </div>
+    </fieldset>
+
+    <button type="submit">Compare</button>
+  </form>
+</div>
+</body>
+</html>
