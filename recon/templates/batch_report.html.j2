@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>recon batch report</title>
+<style>
+  body { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; margin: 24px; color: #1f2328; }
+  h1 { font-size: 20px; }
+  .meta { color: #59636e; font-size: 13px; margin-bottom: 20px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { border: 1px solid #d1d9e0; padding: 5px 10px; text-align: left; }
+  th { background: #f6f8fa; }
+  .badge { display: inline-block; padding: 1px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+  .badge.MATCH { background: #dafbe1; color: #116329; }
+  .badge.DIFF { background: #fff1c2; color: #7d4e00; }
+  .badge.ERROR { background: #ffebe9; color: #cf222e; }
+  .totals { margin-top: 14px; font-size: 14px; }
+  .back { margin-bottom: 16px; font-size: 14px; }
+</style>
+</head>
+<body>
+{% if back_url %}<div class="back"><a href="{{ back_url }}">← New batch</a></div>{% endif %}
+<h1>Batch comparison report</h1>
+<div class="meta">{% if manifest %}Manifest: <strong>{{ manifest }}</strong> &nbsp;·&nbsp; {% endif %}{{ items | length }} pairs &nbsp;·&nbsp; generated {{ generated }}</div>
+<table>
+  <tr><th>#</th><th>Source</th><th>Target</th><th>Status</th><th>Detail</th><th></th></tr>
+  {% for item in items %}
+  <tr>
+    <td>{{ item.index }}</td>
+    <td>{{ item.source }}</td>
+    <td>{{ item.target }}</td>
+    <td><span class="badge {{ item.status }}">{{ item.status }}</span></td>
+    <td>{{ item.detail }}</td>
+    <td>{% if links.get(item.index) %}<a href="{{ links[item.index] }}">report</a>{% endif %}</td>
+  </tr>
+  {% endfor %}
+</table>
+<div class="totals">
+  {{ items | selectattr("status", "equalto", "MATCH") | list | length }} match ·
+  {{ items | selectattr("status", "equalto", "DIFF") | list | length }} differ ·
+  {{ items | selectattr("status", "equalto", "ERROR") | list | length }} error
+</div>
+</body>
+</html>

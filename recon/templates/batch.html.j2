@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>recon — batch reconciliation</title>
+<style>
+  body { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; margin: 0; background: #f6f8fa; color: #1f2328; }
+  .card { max-width: 860px; margin: 48px auto; background: #fff; border: 1px solid #d1d9e0; border-radius: 8px; padding: 28px 32px; }
+  h1 { font-size: 20px; margin-top: 0; }
+  .sub { color: #59636e; font-size: 13px; margin-bottom: 20px; }
+  .nav { font-size: 14px; margin-bottom: 12px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { border: 1px solid #d1d9e0; padding: 5px 8px; text-align: left; }
+  th { background: #f6f8fa; }
+  td.idx { width: 36px; text-align: right; color: #59636e; background: #f6f8fa; }
+  td input[type="text"] { width: 100%; box-sizing: border-box; border: none; font-size: 13px; padding: 4px; outline: none; }
+  td.del-cell { width: 30px; text-align: center; }
+  .del { border: none; background: none; color: #cf222e; cursor: pointer; font-size: 15px; }
+  .add { margin-top: 10px; background: #f6f8fa; border: 1px solid #d1d9e0; border-radius: 6px; padding: 5px 14px; font-size: 13px; cursor: pointer; }
+  label { display: block; font-weight: 600; font-size: 13px; margin: 14px 0 4px; }
+  .hint { font-weight: 400; color: #59636e; }
+  input.opt { width: 100%; box-sizing: border-box; padding: 6px 8px; border: 1px solid #d1d9e0; border-radius: 6px; font-size: 14px; }
+  .check { margin-top: 14px; font-size: 14px; }
+  .check label { display: inline; font-weight: 400; }
+  button.submit { margin-top: 22px; background: #1f883d; color: #fff; border: none; border-radius: 6px; padding: 8px 18px; font-size: 14px; font-weight: 600; cursor: pointer; }
+  button.submit:hover { background: #1a7f37; }
+  .error { background: #ffebe9; border: 1px solid #ff8182; color: #cf222e; border-radius: 6px; padding: 8px 12px; font-size: 14px; margin-bottom: 8px; }
+  fieldset { border: 1px solid #d1d9e0; border-radius: 6px; margin-top: 20px; padding: 4px 16px 16px; }
+  legend { font-size: 13px; font-weight: 600; color: #59636e; padding: 0 6px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="nav"><a href="/">← Single comparison</a></div>
+  <h1>Batch reconciliation</h1>
+  <div class="sub">Enter source/target file path pairs (paths on the machine running <code>recon serve</code>). The index auto-numbers as you add rows. You can also run a manifest file from the command line: <code>recon batch manifest.xlsx</code>.</div>
+
+  {% if error %}<div class="error">{{ error }}</div>{% endif %}
+
+  <form method="post" action="/batch">
+    <table id="pairs">
+      <tr><th>#</th><th>Source file path</th><th>Target file path</th><th></th></tr>
+      {% for s, t in form_rows or [("", ""), ("", ""), ("", "")] %}
+      <tr>
+        <td class="idx"></td>
+        <td><input type="text" name="source" value="{{ s }}" placeholder="/path/to/source/file"></td>
+        <td><input type="text" name="target" value="{{ t }}" placeholder="/path/to/target/file"></td>
+        <td class="del-cell"><button type="button" class="del" title="Remove row">×</button></td>
+      </tr>
+      {% endfor %}
+    </table>
+    <button type="button" class="add" id="add-row">＋ Add row</button>
+
+    <fieldset>
+      <legend>Options (applied to every pair)</legend>
+      <label>Key column(s) <span class="hint">— for csv/xlsx pairs; other pairs get a text diff</span></label>
+      <input class="opt" type="text" name="key" placeholder="e.g. trade_id" value="{{ form.get('key', '') }}">
+      <label>Ignore columns</label>
+      <input class="opt" type="text" name="ignore" placeholder="e.g. updated_at" value="{{ form.get('ignore', '') }}">
+      <label>Numeric tolerance</label>
+      <input class="opt" type="number" name="tolerance" step="any" min="0" placeholder="0" value="{{ form.get('tolerance', '') }}">
+      <div class="check">
+        <input type="checkbox" id="show_matched" name="show_matched" value="1" {% if form.get('show_matched') %}checked{% endif %}>
+        <label for="show_matched">Show all fields of mismatched records in detail reports</label>
+      </div>
+    </fieldset>
+
+    <button class="submit" type="submit">Run batch</button>
+  </form>
+</div>
+<script>
+  const table = document.getElementById("pairs");
+  function renumber() {
+    table.querySelectorAll("td.idx").forEach((td, i) => td.textContent = i + 1);
+  }
+  function bindDelete(btn) {
+    btn.addEventListener("click", () => {
+      if (table.querySelectorAll("td.idx").length > 1) {
+        btn.closest("tr").remove();
+        renumber();
+      }
+    });
+  }
+  document.getElementById("add-row").addEventListener("click", () => {
+    const rows = table.querySelectorAll("tr");
+    const last = rows[rows.length - 1];
+    const row = last.cloneNode(true);
+    row.querySelectorAll("input").forEach(inp => inp.value = "");
+    bindDelete(row.querySelector(".del"));
+    table.appendChild(row);
+    renumber();
+    row.querySelector("input").focus();
+  });
+  table.querySelectorAll(".del").forEach(bindDelete);
+  renumber();
+</script>
+</body>
+</html>

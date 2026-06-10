@@ -1,6 +1,7 @@
 """recon command-line interface."""
 
 import sys
+from datetime import datetime
 from pathlib import Path
 
 import click
@@ -82,6 +83,88 @@ def fmt(file, output):
         click.echo(f"Formatted output written to {output}")
     else:
         click.echo(pretty)
+
+
+@main.command()
+@click.argument("manifest", type=click.Path(exists=True, dir_okay=False))
+@click.option("--key", "-k", help="Key column(s) for tabular pairs; non-tabular pairs fall back to text diff.")
+@click.option("--ignore", "-i", help="Comma-separated columns to skip when comparing records.")
+@click.option("--tolerance", "-t", type=float, default=0.0, show_default=True,
+              help="Numeric tolerance for field comparison in reconciliation mode.")
+@click.option("--show-matched", "-m", is_flag=True,
+              help="In per-pair HTML reports, show all fields of mismatched records.")
+@click.option("--html-dir", type=click.Path(file_okay=False),
+              help="Write an index.html summary plus one report per pair into this directory.")
+def batch(manifest, key, ignore, tolerance, show_matched, html_dir):
+    """Batch-compare file pairs listed in MANIFEST (.xlsx or .csv).
+
+    Manifest columns: index (informational, auto-renumbered), source path,
+    target path. Relative paths resolve against the manifest's directory.
+    Generate a starter file with `recon batch-template`.
+    """
+    from .batch import ManifestError, load_manifest, run_batch
+    from .report import render_html, render_template
+
+    console = Console()
+    try:
+        pairs = load_manifest(manifest)
+    except ManifestError as e:
+        raise click.ClickException(str(e))
+
+    items = run_batch(pairs, key=key, ignore=ignore, tolerance=tolerance,
+                      base_dir=Path(manifest).parent)
+
+    from rich.table import Table
+    styles = {"MATCH": "green", "DIFF": "yellow", "ERROR": "red"}
+    table = Table(title=f"Batch comparison: {manifest} ({len(items)} pairs)")
+    table.add_column("#", justify="right")
+    table.add_column("Source")
+    table.add_column("Target")
+    table.add_column("Status")
+    table.add_column("Detail")
+    for item in items:
+        table.add_row(str(item.index), item.source, item.target,
+                      f"[{styles[item.status]}]{item.status}[/]", item.detail)
+    console.print(table)
+    counts = {s: sum(1 for i in items if i.status == s) for s in styles}
+    console.print(f"[green]{counts['MATCH']} match[/] · "
+                  f"[yellow]{counts['DIFF']} differ[/] · "
+                  f"[red]{counts['ERROR']} error[/]")
+
+    if html_dir:
+        out = Path(html_dir)
+        out.mkdir(parents=True, exist_ok=True)
+        links = {}
+        for item in items:
+            if item.result is None:
+                continue
+            name = f"{item.index:03d}_{Path(item.source).stem}_vs_{Path(item.target).stem}.html"
+            (out / name).write_text(
+                render_html(item.result, show_matched=show_matched, back_url="index.html"),
+                encoding="utf-8")
+            links[item.index] = name
+        (out / "index.html").write_text(
+            render_template("batch_report.html.j2", items=items, links=links,
+                            manifest=str(manifest),
+                            generated=datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
+            encoding="utf-8")
+        console.print(f"[dim]HTML reports written to {out}/index.html[/]")
+
+    if counts["ERROR"]:
+        sys.exit(EXIT_ERROR)
+    sys.exit(EXIT_SAME if counts["DIFF"] == 0 else EXIT_DIFF)
+
+
+@main.command("batch-template")
+@click.argument("output", type=click.Path(dir_okay=False), default="manifest.xlsx")
+def batch_template(output):
+    """Create a starter batch manifest (.xlsx with auto-numbering index column)."""
+    from .batch import write_template_xlsx
+
+    if Path(output).exists():
+        raise click.ClickException(f"{output} already exists; not overwriting")
+    write_template_xlsx(output)
+    click.echo(f"Template written to {output} (columns: index | source | target)")
 
 
 @main.command()

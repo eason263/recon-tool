@@ -1,0 +1,5 @@
+index,source,target
+1,a.csv,b.csv
+2,a.json,b.json
+3,a.txt,a.txt
+4,a.docx,missing.docx

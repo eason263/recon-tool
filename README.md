@@ -35,7 +35,14 @@ recon compare a.xlsx b.xlsx --key trade_id,date --ignore updated_at --tolerance 
 recon compare a.csv b.csv --key trade_id --show-matched
 
 # Web UI: upload files and set options in the browser at http://127.0.0.1:8765
+# (single comparison at /, batch mode at /batch)
 recon serve
+
+# Batch: compare many file pairs listed in a manifest (.xlsx or .csv) with
+# columns: index | source path | target path. Relative paths resolve against
+# the manifest's directory. --html-dir writes a linked summary + per-pair reports.
+recon batch-template manifest.xlsx     # starter file; index auto-numbers in Excel
+recon batch manifest.xlsx --key trade_id --html-dir reports/
 
 # Pretty-print a JSON or XML file
 recon fmt messy.json
