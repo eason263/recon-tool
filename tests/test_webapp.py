@@ -9,10 +9,16 @@ FIXTURES = Path(__file__).parent / "fixtures"
 
 
 @pytest.fixture
-def client():
+def client(tmp_path, monkeypatch):
+    monkeypatch.setenv("RECON_DB", str(tmp_path / "test.db"))
     app = create_app()
     app.config["TESTING"] = True
-    return app.test_client()
+    with app.test_client() as c:
+        from recon.auth import create_user
+        create_user("test", "testpass")
+        with c.session_transaction() as sess:
+            sess["user"] = "test"
+        yield c
 
 
 def _upload(name):

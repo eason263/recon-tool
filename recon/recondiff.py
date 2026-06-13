@@ -2,6 +2,8 @@
 
 from dataclasses import dataclass, field
 
+from .matching import ColumnRule, apply_column_map, compare_values, norm as _mnorm
+
 
 class ReconError(Exception):
     pass
@@ -47,10 +49,17 @@ def reconcile(
     key_columns: list[str],
     ignore_columns: list[str] | None = None,
     tolerance: float = 0.0,
+    column_map: dict[str, str] | None = None,
+    column_rules: dict[str, ColumnRule] | None = None,
+    case_sensitive: bool = True,
+    null_equals_empty: bool = False,
 ) -> ReconResult:
     a_headers, a_rows = a
     b_headers, b_rows = b
     ignore = set(ignore_columns or [])
+
+    if column_map:
+        b_headers, b_rows = apply_column_map(b_headers, b_rows, column_map)
 
     for col in key_columns:
         if col not in a_headers:
@@ -69,8 +78,22 @@ def reconcile(
         total_a=len(a_rows), total_b=len(b_rows),
     )
 
-    map_a = _index_by_key(a_rows, key_columns, result.duplicate_keys_a)
-    map_b = _index_by_key(b_rows, key_columns, result.duplicate_keys_b)
+    global_rule = ColumnRule(
+        tolerance=tolerance,
+        case_sensitive=case_sensitive,
+        null_equals_empty=null_equals_empty,
+    )
+    rules = column_rules or {}
+
+    def _norm_key(val) -> str:
+        return _mnorm(val, case_sensitive=case_sensitive, null_equals_empty=null_equals_empty)
+
+    def _norm_col(val, col: str) -> str:
+        r = rules.get(col, global_rule)
+        return _mnorm(val, case_sensitive=r.case_sensitive, null_equals_empty=r.null_equals_empty)
+
+    map_a = _index_by_key(a_rows, key_columns, result.duplicate_keys_a, _norm_key)
+    map_b = _index_by_key(b_rows, key_columns, result.duplicate_keys_b, _norm_key)
     result.records_a = map_a
     result.records_b = map_b
 
@@ -82,8 +105,10 @@ def reconcile(
         result.matched += 1
         row_had_mismatch = False
         for col in compared:
-            va, vb = _norm(row_a.get(col)), _norm(row_b.get(col))
-            if not _values_equal(va, vb, tolerance):
+            rule = rules.get(col, global_rule)
+            va = _norm_col(row_a.get(col), col)
+            vb = _norm_col(row_b.get(col), col)
+            if not compare_values(va, vb, rule):
                 result.mismatches.append(FieldMismatch(key, col, va, vb))
                 row_had_mismatch = True
         if row_had_mismatch:
@@ -93,28 +118,18 @@ def reconcile(
     return result
 
 
-def _index_by_key(rows: list[dict], key_columns: list[str], duplicates: list[tuple]) -> dict:
+def _index_by_key(
+    rows: list[dict],
+    key_columns: list[str],
+    duplicates: list[tuple],
+    norm_fn,
+) -> dict:
     indexed: dict[tuple, dict] = {}
     for row in rows:
-        key = tuple(_norm(row.get(c)) for c in key_columns)
+        key = tuple(norm_fn(row.get(c)) for c in key_columns)
         if key in indexed:
             if key not in duplicates:
                 duplicates.append(key)
         else:
             indexed[key] = row
     return indexed
-
-
-def _norm(value) -> str:
-    return "" if value is None else str(value).strip()
-
-
-def _values_equal(a: str, b: str, tolerance: float) -> bool:
-    if a == b:
-        return True
-    if tolerance > 0:
-        try:
-            return abs(float(a) - float(b)) <= tolerance
-        except ValueError:
-            return False
-    return False

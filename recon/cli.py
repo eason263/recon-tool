@@ -25,6 +25,76 @@ def main():
 
 
 @main.command()
+@click.argument("job_file", type=click.Path(exists=True, dir_okay=False))
+@click.option("--html", "html_out", type=click.Path(dir_okay=False),
+              help="Write an HTML report to this path.")
+@click.option("--show-matched", "-m", is_flag=True,
+              help="Show all fields of mismatched records, not just differing columns.")
+@click.option("--save/--no-save", default=True, show_default=True,
+              help="Save the run to the history database.")
+def run(job_file, html_out, show_matched, save):
+    """Run a reconciliation job defined in JOB_FILE (YAML)."""
+    from .jobconfig import JobConfigError, load_job
+    from . import store
+
+    console = Console()
+    try:
+        job = load_job(job_file)
+    except JobConfigError as e:
+        raise click.ClickException(str(e))
+
+    key_str = ",".join(job.key) if job.key else None
+    ignore_str = ",".join(job.ignore) if job.ignore else None
+
+    try:
+        result = compare_paths(
+            job.source_path, job.target_path,
+            key=key_str, ignore=ignore_str, tolerance=job.tolerance,
+            column_map=job.column_map or None,
+            column_rules=job.matching.per_column or None,
+            case_sensitive=job.matching.case_sensitive,
+            null_equals_empty=job.matching.null_equals_empty,
+        )
+    except (LoadError, ReconError, CompareError) as e:
+        raise click.ClickException(str(e))
+
+    if isinstance(result, ReconResult):
+        render_recon_terminal(result, console, show_matched=show_matched)
+        same = result.reconciled
+        if save:
+            run_id = store.save_run(result, job.name)
+            console.print(f"[dim]Run saved as #{run_id}  (recon serve → /runs/{run_id})[/]")
+    else:
+        render_diff_terminal(result, console)
+        same = result.identical
+
+    if html_out:
+        write_html(result, html_out, show_matched=show_matched)
+        console.print(f"[dim]HTML report written to {html_out}[/]")
+
+    sys.exit(EXIT_SAME if same else EXIT_DIFF)
+
+
+@main.group()
+def users():
+    """Manage web UI users."""
+
+
+@users.command("add")
+@click.argument("username")
+@click.password_option(prompt="Password", confirmation_prompt="Confirm password")
+def users_add(username, password):
+    """Create a new web UI user and print their API key."""
+    from .auth import create_user
+    try:
+        api_key = create_user(username, password)
+    except Exception as e:
+        raise click.ClickException(str(e))
+    click.echo(f"User '{username}' created.")
+    click.echo(f"API key: {api_key}")
+
+
+@main.command()
 @click.argument("file_a", type=click.Path(exists=True, dir_okay=False))
 @click.argument("file_b", type=click.Path(exists=True, dir_okay=False))
 @click.option("--key", "-k", help="Comma-separated key column(s); enables record reconciliation for tabular files.")
@@ -113,6 +183,11 @@ def batch(manifest, key, ignore, tolerance, show_matched, html_dir):
 
     items = run_batch(pairs, key=key, ignore=ignore, tolerance=tolerance,
                       base_dir=Path(manifest).parent)
+
+    from . import store
+    for item in items:
+        if isinstance(item.result, ReconResult):
+            store.save_run(item.result, job_name=f"batch:{Path(manifest).name}")
 
     from rich.table import Table
     styles = {"MATCH": "green", "DIFF": "yellow", "ERROR": "red"}

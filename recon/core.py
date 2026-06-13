@@ -19,6 +19,10 @@ def compare_paths(
     tolerance: float = 0.0,
     a_name: str | None = None,
     b_name: str | None = None,
+    column_map: dict | None = None,
+    column_rules: dict | None = None,
+    case_sensitive: bool = True,
+    null_equals_empty: bool = False,
 ) -> DiffResult | ReconResult:
     """Compare two files; returns a ReconResult when key is given, else a DiffResult.
 
@@ -42,7 +46,9 @@ def compare_paths(
         ignores = [c.strip() for c in ignore.split(",") if c.strip()] if ignore else []
         return reconcile(data_a, data_b, a_name, b_name,
                          key_columns=keys, ignore_columns=ignores,
-                         tolerance=tolerance)
+                         tolerance=tolerance, column_map=column_map,
+                         column_rules=column_rules, case_sensitive=case_sensitive,
+                         null_equals_empty=null_equals_empty)
 
     if kind_a == "records":
         data_a = _records_to_lines(data_a)
