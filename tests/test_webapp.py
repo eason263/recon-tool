@@ -83,11 +83,11 @@ def test_batch_form(client):
 
 def test_batch_run_and_detail(client):
     resp = client.post("/batch", data={
-        "source": [str(FIXTURES / "a.csv"), str(FIXTURES / "a.txt"), ""],
-        "target": [str(FIXTURES / "b.csv"), str(FIXTURES / "b.txt"), ""],
+        "source": [_upload("a.csv"), _upload("a.txt")],
+        "target": [_upload("b.csv"), _upload("b.txt")],
         "key": "trade_id",
         "ignore": "updated_at",
-    })
+    }, content_type="multipart/form-data")
     assert resp.status_code == 302
     summary = client.get(resp.headers["Location"])
     assert summary.status_code == 200
@@ -98,13 +98,10 @@ def test_batch_run_and_detail(client):
     assert b"Field mismatches" in detail.data
 
 
-def test_batch_incomplete_row_is_an_error(client):
-    resp = client.post("/batch", data={
-        "source": [str(FIXTURES / "a.csv")],
-        "target": [""],
-    })
+def test_batch_no_files_is_an_error(client):
+    resp = client.post("/batch", data={}, content_type="multipart/form-data")
     assert resp.status_code == 400
-    assert b"both a source and a target" in resp.data
+    assert b"at least one" in resp.data
 
 
 def test_key_on_text_files_is_an_error(client):

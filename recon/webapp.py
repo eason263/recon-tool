@@ -14,7 +14,7 @@ from werkzeug.utils import secure_filename
 from . import store
 from .api import api
 from .auth import check_login, create_user, has_users, require_login
-from .batch import run_batch
+from .batch import BatchItem, run_batch
 from .core import CompareError, compare_paths
 from .loaders import LoadError
 from .recondiff import ReconError, ReconResult
@@ -142,37 +142,75 @@ def create_app() -> Flask:
     @app.get("/batch")
     @require_login
     def batch_form():
-        return render_template("batch.html.j2", form={}, form_rows=None,
+        return render_template("batch.html.j2", form={},
                                user=session.get("user"), active="batch")
+
+    @app.get("/batch/template")
+    @require_login
+    def batch_template():
+        from flask import Response
+        csv_content = (
+            "trade_id,trade_date,counterparty,instrument,notional,currency,status\n"
+            "T001,2024-01-15,Goldman Sachs,AAPL US Equity,1000000.00,USD,confirmed\n"
+            "T002,2024-01-15,JPMorgan,EUR/USD Spot,2500000.00,EUR,confirmed\n"
+            "T003,2024-01-15,Barclays,US 10Y Bond,5000000.00,USD,pending\n"
+            "T004,2024-01-15,Citibank,GBP/USD Spot,750000.00,GBP,confirmed\n"
+        )
+        return Response(
+            csv_content, mimetype="text/csv",
+            headers={"Content-Disposition": "attachment; filename=recon_template.csv"},
+        )
 
     @app.post("/batch")
     @require_login
     def batch_run():
         form = request.form.to_dict()
-        sources = request.form.getlist("source")
-        targets = request.form.getlist("target")
-        rows = [(s.strip(), t.strip()) for s, t in zip(sources, targets)]
-        pairs = [(s, t) for s, t in rows if s or t]
+        source_files = request.files.getlist("source")
+        target_files = request.files.getlist("target")
+        file_pairs = [
+            (sf, tf) for sf, tf in zip(source_files, target_files)
+            if sf and sf.filename and tf and tf.filename
+        ]
 
         def form_error(message, status=400):
-            return render_template("batch.html.j2", form=form,
-                                   form_rows=rows, error=message,
+            return render_template("batch.html.j2", form=form, error=message,
                                    user=session.get("user"), active="batch"), status
 
-        if not pairs:
-            return form_error("Please enter at least one source/target pair.")
-        for n, (s, t) in enumerate(pairs, start=1):
-            if not s or not t:
-                return form_error(f"Row {n} needs both a source and a target path.")
+        if not file_pairs:
+            return form_error("Please upload at least one source/target file pair.")
         try:
             tolerance = float(form.get("tolerance") or 0.0)
         except ValueError:
             return form_error("Tolerance must be a number.")
 
-        items = run_batch(pairs,
-                          key=form.get("key", "").strip() or None,
-                          ignore=form.get("ignore", "").strip() or None,
-                          tolerance=tolerance)
+        key = form.get("key", "").strip() or None
+        ignore = form.get("ignore", "").strip() or None
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            items = []
+            for n, (sf, tf) in enumerate(file_pairs, start=1):
+                sub = Path(tmpdir) / str(n)
+                sub.mkdir()
+                path_a = sub / secure_filename(sf.filename)
+                path_b = sub / secure_filename(tf.filename)
+                sf.save(path_a)
+                tf.save(path_b)
+                item = BatchItem(index=n, source=sf.filename, target=tf.filename)
+                try:
+                    try:
+                        item.result = compare_paths(
+                            path_a, path_b,
+                            key=key, ignore=ignore, tolerance=tolerance,
+                            a_name=sf.filename, b_name=tf.filename,
+                        )
+                    except CompareError:
+                        item.result = compare_paths(
+                            path_a, path_b,
+                            a_name=sf.filename, b_name=tf.filename,
+                        )
+                except (LoadError, ReconError, OSError) as e:
+                    item.error = str(e)
+                items.append(item)
 
         for item in items:
             if isinstance(item.result, ReconResult):
