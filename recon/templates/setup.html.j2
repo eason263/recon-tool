@@ -2,31 +2,54 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>recon · first-run setup</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Setup — recon</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  body { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; background: #f6f8fa; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
-  .card { background: #fff; border: 1px solid #d1d9e0; border-radius: 8px; padding: 32px 40px; width: 340px; }
-  h1 { font-size: 20px; margin: 0 0 6px; }
-  .sub { color: #59636e; font-size: 13px; margin-bottom: 24px; }
-  label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; }
-  input[type=text], input[type=password] { width: 100%; box-sizing: border-box; border: 1px solid #d1d9e0; border-radius: 6px; padding: 7px 10px; font-size: 14px; margin-bottom: 14px; }
-  button { width: 100%; background: #1f883d; color: #fff; border: none; border-radius: 6px; padding: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
-  .error { color: #cf222e; font-size: 13px; margin-bottom: 14px; }
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'IBM Plex Sans',-apple-system,sans-serif;background:#020617;min-height:100vh;display:flex;align-items:center;justify-content:center;color:#F8FAFC;}
+.card{background:#0F172A;border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:36px;width:100%;max-width:380px;box-shadow:0 25px 50px rgba(0,0,0,.5);}
+.brand{display:flex;align-items:center;gap:10px;justify-content:center;margin-bottom:6px;}
+.brand-mark{width:32px;height:32px;background:#2563EB;border-radius:8px;display:flex;align-items:center;justify-content:center;}
+.brand-name{font-size:17px;font-weight:700;letter-spacing:-.02em;}
+h2{font-size:16px;font-weight:600;margin-bottom:4px;color:#E2E8F0;text-align:center;}
+.sub{font-size:12.5px;color:#64748B;text-align:center;margin-bottom:22px;}
+.fl{display:block;font-size:13px;font-weight:500;color:#94A3B8;margin-bottom:5px;}
+.fg{margin-bottom:14px;}
+input{width:100%;padding:9px 12px;border:1px solid rgba(255,255,255,0.1);border-radius:7px;font-size:14px;font-family:inherit;color:#F8FAFC;background:rgba(255,255,255,0.05);outline:none;transition:border-color 150ms,box-shadow 150ms;}
+input:focus{border-color:#2563EB;box-shadow:0 0 0 3px rgba(37,99,235,.2);}
+input::placeholder{color:#475569;}
+.btn{width:100%;padding:9px;border-radius:7px;background:#2563EB;color:#fff;font-size:14px;font-weight:600;font-family:inherit;border:none;cursor:pointer;transition:background 150ms;margin-top:6px;}
+.btn:hover{background:#1D4ED8;}
+.err{padding:10px 12px;border-radius:7px;font-size:13px;margin-bottom:14px;background:rgba(220,38,38,.15);color:#FCA5A5;border:1px solid rgba(220,38,38,.25);}
 </style>
 </head>
 <body>
 <div class="card">
-  <h1>Welcome to recon</h1>
+  <div class="brand">
+    <div class="brand-mark">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+    </div>
+    <span class="brand-name">recon</span>
+  </div>
+  <h2>Welcome to recon</h2>
   <div class="sub">Create your admin account to get started.</div>
-  {% if error %}<div class="error">{{ error }}</div>{% endif %}
+  {% if error %}<div class="err">{{ error }}</div>{% endif %}
   <form method="post" action="/setup">
-    <label>Username</label>
-    <input type="text" name="username" autofocus required>
-    <label>Password</label>
-    <input type="password" name="password" required>
-    <label>Confirm password</label>
-    <input type="password" name="password2" required>
-    <button type="submit">Create account</button>
+    <div class="fg">
+      <label class="fl" for="u">Username</label>
+      <input id="u" name="username" type="text" autocomplete="username" autofocus required>
+    </div>
+    <div class="fg">
+      <label class="fl" for="p">Password</label>
+      <input id="p" name="password" type="password" autocomplete="new-password" required>
+    </div>
+    <div class="fg">
+      <label class="fl" for="p2">Confirm password</label>
+      <input id="p2" name="password2" type="password" autocomplete="new-password" required>
+    </div>
+    <button class="btn" type="submit">Create account</button>
   </form>
 </div>
 </body>

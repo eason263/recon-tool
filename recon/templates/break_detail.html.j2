@@ -1,80 +1,115 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<title>recon · break #{{ brk.id }}</title>
-<style>
-  body { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; margin: 0; color: #1f2328; }
-  .nav { background: #fff; border-bottom: 1px solid #d1d9e0; padding: 10px 24px; display: flex; align-items: center; gap: 20px; }
-  .nav a { color: #1f2328; text-decoration: none; font-size: 14px; }
-  .nav a:hover { color: #0969da; }
-  .nav .brand { font-weight: 700; font-size: 16px; }
-  .nav .logout { margin-left: auto; color: #59636e; }
-  .content { padding: 24px; max-width: 640px; }
-  h1 { font-size: 20px; margin: 0 0 6px; }
-  .meta { color: #59636e; font-size: 13px; margin-bottom: 24px; }
-  dl { display: grid; grid-template-columns: 140px 1fr; gap: 6px 12px; font-size: 13px; margin-bottom: 24px; }
-  dt { font-weight: 600; color: #59636e; }
-  dd { margin: 0; }
-  .val-a { background: #ffebe9; padding: 2px 6px; border-radius: 4px; }
-  .val-b { background: #dafbe1; padding: 2px 6px; border-radius: 4px; }
-  label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; margin-top: 14px; }
-  select, input[type=text], textarea { width: 100%; box-sizing: border-box; border: 1px solid #d1d9e0; border-radius: 6px; padding: 7px 10px; font-size: 14px; }
-  textarea { resize: vertical; min-height: 80px; }
-  .actions { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
-  button { border: none; border-radius: 6px; padding: 7px 18px; font-size: 14px; font-weight: 600; cursor: pointer; }
-  .btn-resolve { background: #1f883d; color: #fff; }
-  .btn-fp { background: #59636e; color: #fff; }
-  .btn-reopen { background: #f0f0f0; color: #1f2328; }
-  a { color: #0969da; }
-  .success { background: #dafbe1; color: #116329; border-radius: 6px; padding: 10px 14px; margin-bottom: 18px; font-size: 13px; }
-</style>
-</head>
-<body>
-<nav class="nav">
-  <span class="brand">recon</span>
-  <a href="/">Compare</a>
-  <a href="/batch">Batch</a>
-  <a href="/runs">History</a>
-  <a href="/logout" class="logout">Sign out ({{ user }})</a>
-</nav>
-<div class="content">
-  <div style="margin-bottom:10px"><a href="/runs/{{ brk.run_id }}">← Run #{{ brk.run_id }}</a></div>
-  <h1>Break #{{ brk.id }}</h1>
-  <div class="meta">Run #{{ brk.run_id }} &nbsp;·&nbsp; {{ brk.break_type.replace('_', ' ') }}</div>
+{% extends "_base.html.j2" %}
+{% block title %}Break #{{ brk.id }}{% endblock %}
 
-  {% if saved %}<div class="success">Break updated.</div>{% endif %}
-
-  <dl>
-    <dt>Key</dt><dd>{{ brk.key_display }}</dd>
-    <dt>Column</dt><dd>{{ brk.column or '—' }}</dd>
-    {% if brk.a_value is not none %}<dt>A value</dt><dd><span class="val-a">{{ brk.a_value }}</span></dd>{% endif %}
-    {% if brk.b_value is not none %}<dt>B value</dt><dd><span class="val-b">{{ brk.b_value }}</span></dd>{% endif %}
-    <dt>Status</dt><dd>{{ brk.status.replace('_', ' ') }}</dd>
-    <dt>Assigned to</dt><dd>{{ brk.assigned_to or '—' }}</dd>
-    <dt>Note</dt><dd>{{ brk.note or '—' }}</dd>
-    {% if brk.resolved_at %}<dt>Resolved at</dt><dd>{{ brk.resolved_at }}</dd>{% endif %}
-  </dl>
-
-  <form method="post">
-    <label>Assign to</label>
-    <input type="text" name="assigned_to" value="{{ brk.assigned_to or '' }}" placeholder="username">
-
-    <label>Note</label>
-    <textarea name="note" placeholder="Add a note…">{{ brk.note or '' }}</textarea>
-
-    <div class="actions">
-      {% if brk.status != 'resolved' %}
-      <button type="submit" name="status" value="resolved" class="btn-resolve">Mark resolved</button>
-      {% endif %}
-      {% if brk.status != 'false_positive' %}
-      <button type="submit" name="status" value="false_positive" class="btn-fp">Mark false positive</button>
-      {% endif %}
-      {% if brk.status != 'open' %}
-      <button type="submit" name="status" value="open" class="btn-reopen">Reopen</button>
-      {% endif %}
-    </div>
-  </form>
+{% block content %}
+<div class="top-bar">
+  <div class="breadcrumb">
+    <a href="/runs">Run history</a>
+    <span class="sep">/</span>
+    <a href="/runs/{{ brk.run_id }}">Run #{{ brk.run_id }}</a>
+    <span class="sep">/</span>
+    <span class="cur">Break #{{ brk.id }}</span>
+  </div>
 </div>
-</body>
-</html>
+
+<div class="content" style="max-width:700px;">
+  <div class="ph">
+    <div class="ph-left">
+      <h1>Break #{{ brk.id }}</h1>
+      <div class="sub">
+        <span class="badge bt-{{ brk.break_type }}">{{ brk.break_type.replace('_', ' ') }}</span>
+        &nbsp;·&nbsp; Run #{{ brk.run_id }}
+      </div>
+    </div>
+  </div>
+
+  {% if saved %}
+  <div class="alert alert-ok">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:6px;"><polyline points="20 6 9 17 4 12"/></svg>
+    Break updated successfully.
+  </div>
+  {% endif %}
+
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-head"><span class="card-title">Break details</span></div>
+    <div class="card-body" style="padding:0;">
+      <dl style="display:grid;grid-template-columns:140px 1fr;gap:0;font-size:13.5px;">
+        <div style="display:contents;">
+          <dt style="padding:11px 20px;color:var(--text3);font-weight:500;border-bottom:1px solid var(--border);background:var(--surface2);">Key</dt>
+          <dd style="padding:11px 20px;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:12.5px;">{{ brk.key_display }}</dd>
+        </div>
+        {% if brk.column %}
+        <div style="display:contents;">
+          <dt style="padding:11px 20px;color:var(--text3);font-weight:500;border-bottom:1px solid var(--border);background:var(--surface2);">Column</dt>
+          <dd style="padding:11px 20px;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:12.5px;">{{ brk.column }}</dd>
+        </div>
+        {% endif %}
+        {% if brk.a_value is not none %}
+        <div style="display:contents;">
+          <dt style="padding:11px 20px;color:var(--text3);font-weight:500;border-bottom:1px solid var(--border);background:var(--surface2);">A value</dt>
+          <dd style="padding:11px 20px;border-bottom:1px solid var(--border);"><span class="va">{{ brk.a_value }}</span></dd>
+        </div>
+        {% endif %}
+        {% if brk.b_value is not none %}
+        <div style="display:contents;">
+          <dt style="padding:11px 20px;color:var(--text3);font-weight:500;border-bottom:1px solid var(--border);background:var(--surface2);">B value</dt>
+          <dd style="padding:11px 20px;border-bottom:1px solid var(--border);"><span class="vb">{{ brk.b_value }}</span></dd>
+        </div>
+        {% endif %}
+        <div style="display:contents;">
+          <dt style="padding:11px 20px;color:var(--text3);font-weight:500;border-bottom:1px solid var(--border);background:var(--surface2);">Status</dt>
+          <dd style="padding:11px 20px;border-bottom:1px solid var(--border);" class="bs-{{ brk.status }}">{{ brk.status.replace('_', ' ') }}</dd>
+        </div>
+        <div style="display:contents;">
+          <dt style="padding:11px 20px;color:var(--text3);font-weight:500;{% if not brk.resolved_at %}border-bottom:1px solid var(--border);{% endif %}background:var(--surface2);">Assigned to</dt>
+          <dd style="padding:11px 20px;{% if not brk.resolved_at %}border-bottom:1px solid var(--border);{% endif %}">{{ brk.assigned_to or '<span style="color:var(--text3);">Unassigned</span>' }}</dd>
+        </div>
+        {% if brk.resolved_at %}
+        <div style="display:contents;">
+          <dt style="padding:11px 20px;color:var(--text3);font-weight:500;background:var(--surface2);">Resolved at</dt>
+          <dd style="padding:11px 20px;">{{ brk.resolved_at }}</dd>
+        </div>
+        {% endif %}
+      </dl>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><span class="card-title">Update break</span></div>
+    <div class="card-body">
+      <form method="post">
+        <div class="fg">
+          <label class="fl" for="assigned">Assign to</label>
+          <input id="assigned" type="text" name="assigned_to" value="{{ brk.assigned_to or '' }}" placeholder="Username">
+        </div>
+        <div class="fg">
+          <label class="fl" for="note">Note</label>
+          <textarea id="note" name="note" placeholder="Add a note or explanation…">{{ brk.note or '' }}</textarea>
+        </div>
+
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px;">
+          {% if brk.status != 'resolved' %}
+          <button type="submit" name="status" value="resolved" class="btn btn-success">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            Mark resolved
+          </button>
+          {% endif %}
+          {% if brk.status != 'false_positive' %}
+          <button type="submit" name="status" value="false_positive" class="btn btn-ghost">
+            Mark false positive
+          </button>
+          {% endif %}
+          {% if brk.status != 'open' %}
+          <button type="submit" name="status" value="open" class="btn btn-ghost">
+            Reopen
+          </button>
+          {% endif %}
+          <button type="submit" name="status" value="{{ brk.status }}" class="btn btn-ghost" style="margin-left:auto;">
+            Save note
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

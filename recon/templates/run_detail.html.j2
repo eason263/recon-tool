@@ -1,102 +1,93 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<title>recon · run #{{ run.id }}</title>
-<style>
-  body { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; margin: 0; color: #1f2328; }
-  .nav { background: #fff; border-bottom: 1px solid #d1d9e0; padding: 10px 24px; display: flex; align-items: center; gap: 20px; }
-  .nav a { color: #1f2328; text-decoration: none; font-size: 14px; }
-  .nav a:hover { color: #0969da; }
-  .nav .brand { font-weight: 700; font-size: 16px; }
-  .nav .logout { margin-left: auto; color: #59636e; }
-  .content { padding: 24px; }
-  h1 { font-size: 20px; margin: 0 0 4px; }
-  .meta { color: #59636e; font-size: 13px; margin-bottom: 20px; }
-  .summary { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
-  .stat { background: #f6f8fa; border: 1px solid #d1d9e0; border-radius: 8px; padding: 12px 18px; }
-  .stat .val { font-size: 24px; font-weight: 700; }
-  .stat .lbl { font-size: 12px; color: #59636e; margin-top: 2px; }
-  .badge { display: inline-block; padding: 1px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
-  .badge.MATCH { background: #dafbe1; color: #116329; }
-  .badge.DIFF  { background: #fff1c2; color: #7d4e00; }
-  .filters { margin-bottom: 12px; display: flex; gap: 8px; align-items: center; font-size: 13px; }
-  .filters a { padding: 3px 10px; border: 1px solid #d1d9e0; border-radius: 12px; text-decoration: none; color: #1f2328; }
-  .filters a.active, .filters a:hover { background: #0969da; color: #fff; border-color: #0969da; }
-  table { border-collapse: collapse; width: 100%; font-size: 13px; }
-  th, td { border: 1px solid #d1d9e0; padding: 5px 10px; text-align: left; }
-  th { background: #f6f8fa; font-weight: 600; }
-  .btype { font-size: 11px; font-weight: 600; border-radius: 4px; padding: 1px 6px; }
-  .btype.field_mismatch { background: #fff1c2; color: #7d4e00; }
-  .btype.only_in_a { background: #ffebe9; color: #cf222e; }
-  .btype.only_in_b { background: #ddf4ff; color: #0550ae; }
-  .bstatus.open { color: #cf222e; }
-  .bstatus.resolved { color: #116329; }
-  .bstatus.false_positive { color: #59636e; }
-  a { color: #0969da; }
-  .export { margin-bottom: 14px; font-size: 13px; }
-</style>
-</head>
-<body>
-<nav class="nav">
-  <span class="brand">recon</span>
-  <a href="/">Compare</a>
-  <a href="/batch">Batch</a>
-  <a href="/runs">History</a>
-  <a href="/logout" class="logout">Sign out ({{ user }})</a>
-</nav>
+{% extends "_base.html.j2" %}
+{% block title %}Run #{{ run.id }}{% endblock %}
+
+{% block content %}
+<div class="top-bar">
+  <div class="breadcrumb">
+    <a href="/runs">Run history</a>
+    <span class="sep">/</span>
+    <span class="cur">Run #{{ run.id }}</span>
+  </div>
+  <div class="top-bar-right">
+    <a href="/runs/{{ run.id }}/export?format=csv" class="btn btn-ghost btn-sm">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Export CSV
+    </a>
+    <a href="/runs/{{ run.id }}/export?format=json" class="btn btn-ghost btn-sm">JSON</a>
+  </div>
+</div>
+
 <div class="content">
-  <div style="margin-bottom:10px"><a href="/runs">← History</a></div>
-  <h1>Run #{{ run.id }} — {{ run.job_name }} <span class="badge {{ run.status }}">{{ run.status }}</span></h1>
-  <div class="meta">{{ run.source }} vs {{ run.target }} &nbsp;·&nbsp; {{ run.ran_at }}</div>
-
-  <div class="summary">
-    <div class="stat"><div class="val">{{ run.total_a }}</div><div class="lbl">Records in A</div></div>
-    <div class="stat"><div class="val">{{ run.total_b }}</div><div class="lbl">Records in B</div></div>
-    <div class="stat"><div class="val">{{ run.matched }}</div><div class="lbl">Matched</div></div>
-    <div class="stat"><div class="val">{{ run.mismatches }}</div><div class="lbl">Field mismatches</div></div>
-    <div class="stat"><div class="val">{{ run.only_in_a }}</div><div class="lbl">Only in A</div></div>
-    <div class="stat"><div class="val">{{ run.only_in_b }}</div><div class="lbl">Only in B</div></div>
+  <div class="ph">
+    <div class="ph-left">
+      <h1>
+        {{ run.job_name }}
+        <span class="badge status-{{ run.status }}" style="font-size:13px;vertical-align:middle;margin-left:6px;">{{ run.status }}</span>
+      </h1>
+      <div class="sub">{{ run.source }} → {{ run.target }} &nbsp;·&nbsp; {{ run.ran_at }}</div>
+    </div>
   </div>
 
-  <div class="export">
-    Export breaks:
-    <a href="/runs/{{ run.id }}/export?format=json">JSON</a> ·
-    <a href="/runs/{{ run.id }}/export?format=csv">CSV</a>
-  </div>
-
-  <div class="filters">
-    Filter:
-    <a href="/runs/{{ run.id }}" class="{{ 'active' if not status_filter }}">All ({{ breaks | length }})</a>
-    <a href="/runs/{{ run.id }}?status=open" class="{{ 'active' if status_filter == 'open' }}">Open</a>
-    <a href="/runs/{{ run.id }}?status=resolved" class="{{ 'active' if status_filter == 'resolved' }}">Resolved</a>
-    <a href="/runs/{{ run.id }}?status=false_positive" class="{{ 'active' if status_filter == 'false_positive' }}">False positive</a>
+  <div class="stats">
+    <div class="stat"><div class="v">{{ run.total_a }}</div><div class="l">Records A</div></div>
+    <div class="stat"><div class="v">{{ run.total_b }}</div><div class="l">Records B</div></div>
+    <div class="stat"><div class="v" style="color:var(--green);">{{ run.matched }}</div><div class="l">Matched</div></div>
+    <div class="stat"><div class="v" style="color:{% if run.mismatches > 0 %}var(--amber){% else %}var(--text3){% endif %};">{{ run.mismatches }}</div><div class="l">Field diffs</div></div>
+    <div class="stat"><div class="v" style="color:{% if run.only_in_a > 0 %}var(--red){% else %}var(--text3){% endif %};">{{ run.only_in_a }}</div><div class="l">Only in A</div></div>
+    <div class="stat"><div class="v" style="color:{% if run.only_in_b > 0 %}var(--blue){% else %}var(--text3){% endif %};">{{ run.only_in_b }}</div><div class="l">Only in B</div></div>
   </div>
 
   {% set visible = breaks if not status_filter else breaks | selectattr('status', 'equalto', status_filter) | list %}
+  {% set n_open = breaks | selectattr('status','equalto','open')           | list | length %}
+  {% set n_res  = breaks | selectattr('status','equalto','resolved')       | list | length %}
+  {% set n_fp   = breaks | selectattr('status','equalto','false_positive') | list | length %}
+
+  <div class="filter-bar" style="margin-bottom:16px;">
+    <span class="filter-lbl">Filter:</span>
+    <a href="/runs/{{ run.id }}" class="pill {% if not status_filter %}active{% endif %}">All ({{ breaks|length }})</a>
+    <a href="/runs/{{ run.id }}?status=open" class="pill {% if status_filter == 'open' %}active{% endif %}">
+      Open{% if n_open %} <span style="font-weight:700;">{{ n_open }}</span>{% endif %}
+    </a>
+    <a href="/runs/{{ run.id }}?status=resolved" class="pill {% if status_filter == 'resolved' %}active{% endif %}">Resolved{% if n_res %} {{ n_res }}{% endif %}</a>
+    <a href="/runs/{{ run.id }}?status=false_positive" class="pill {% if status_filter == 'false_positive' %}active{% endif %}">False positive{% if n_fp %} {{ n_fp }}{% endif %}</a>
+  </div>
+
   {% if visible %}
-  <table>
-    <tr>
-      <th>Type</th><th>Key</th><th>Column</th>
-      <th>A value</th><th>B value</th>
-      <th>Status</th><th>Assigned to</th><th></th>
-    </tr>
-    {% for b in visible %}
-    <tr>
-      <td><span class="btype {{ b.break_type }}">{{ b.break_type.replace('_', ' ') }}</span></td>
-      <td>{{ b.key_display }}</td>
-      <td>{{ b.column or '—' }}</td>
-      <td>{{ b.a_value or '' }}</td>
-      <td>{{ b.b_value or '' }}</td>
-      <td class="bstatus {{ b.status }}">{{ b.status.replace('_', ' ') }}</td>
-      <td>{{ b.assigned_to or '—' }}</td>
-      <td><a href="/runs/{{ run.id }}/breaks/{{ b.id }}">manage</a></td>
-    </tr>
-    {% endfor %}
-  </table>
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Key</th>
+          <th>Column</th>
+          <th>A value</th>
+          <th>B value</th>
+          <th>Status</th>
+          <th>Assigned</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for b in visible %}
+        <tr>
+          <td><span class="badge bt-{{ b.break_type }}">{{ b.break_type.replace('_', ' ') }}</span></td>
+          <td class="mono" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{{ b.key_display }}">{{ b.key_display }}</td>
+          <td>{{ b.column or '<span style="color:var(--text3);">—</span>' }}</td>
+          <td><span class="va">{{ b.a_value if b.a_value is not none else '' }}</span></td>
+          <td><span class="vb">{{ b.b_value if b.b_value is not none else '' }}</span></td>
+          <td class="bs-{{ b.status }}">{{ b.status.replace('_', ' ') }}</td>
+          <td style="color:var(--text2);">{{ b.assigned_to or '<span style="color:var(--text3);">—</span>' }}</td>
+          <td><a href="/runs/{{ run.id }}/breaks/{{ b.id }}" class="link" style="white-space:nowrap;">Manage →</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
   {% else %}
-  <div style="color:#59636e;margin-top:20px">No breaks match this filter.</div>
+  <div class="empty">
+    <h3>No breaks match this filter</h3>
+    <p>Try a different filter above.</p>
+  </div>
   {% endif %}
 </div>
-</body>
-</html>
+{% endblock %}

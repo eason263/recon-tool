@@ -92,7 +92,8 @@ def create_app() -> Flask:
     @app.get("/")
     @require_login
     def index():
-        return render_template("index.html.j2", form={})
+        return render_template("index.html.j2", form={},
+                               user=session.get("user"), active="compare")
 
     @app.post("/compare")
     @require_login
@@ -102,13 +103,15 @@ def create_app() -> Flask:
         file_b = request.files.get("file_b")
         if not file_a or not file_a.filename or not file_b or not file_b.filename:
             return render_template("index.html.j2", form=form,
-                                   error="Please choose both files."), 400
+                                   error="Please choose both files.",
+                                   user=session.get("user"), active="compare"), 400
 
         try:
             tolerance = float(form.get("tolerance") or 0.0)
         except ValueError:
             return render_template("index.html.j2", form=form,
-                                   error="Tolerance must be a number."), 400
+                                   error="Tolerance must be a number.",
+                                   user=session.get("user"), active="compare"), 400
         show_matched = bool(form.get("show_matched"))
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -126,7 +129,8 @@ def create_app() -> Flask:
                     b_name=file_b.filename,
                 )
             except (LoadError, ReconError, CompareError) as e:
-                return render_template("index.html.j2", form=form, error=str(e)), 400
+                return render_template("index.html.j2", form=form, error=str(e),
+                                       user=session.get("user"), active="compare"), 400
 
         if isinstance(result, ReconResult):
             store.save_run(result, job_name="web-compare")
@@ -138,7 +142,8 @@ def create_app() -> Flask:
     @app.get("/batch")
     @require_login
     def batch_form():
-        return render_template("batch.html.j2", form={}, form_rows=None)
+        return render_template("batch.html.j2", form={}, form_rows=None,
+                               user=session.get("user"), active="batch")
 
     @app.post("/batch")
     @require_login
@@ -151,7 +156,8 @@ def create_app() -> Flask:
 
         def form_error(message, status=400):
             return render_template("batch.html.j2", form=form,
-                                   form_rows=rows, error=message), status
+                                   form_rows=rows, error=message,
+                                   user=session.get("user"), active="batch"), status
 
         if not pairs:
             return form_error("Please enter at least one source/target pair.")
@@ -192,7 +198,8 @@ def create_app() -> Flask:
                  for item in stored["items"] if item.result is not None}
         return render_template("batch_report.html.j2", items=stored["items"],
                                links=links, manifest=None, back_url="/batch",
-                               generated=stored["generated"])
+                               generated=stored["generated"],
+                               user=session.get("user"), active="batch")
 
     @app.get("/batch/<bid>/<int:index>")
     @require_login
@@ -212,7 +219,8 @@ def create_app() -> Flask:
     @require_login
     def runs_list():
         runs = store.list_runs(limit=200)
-        return render_template("runs.html.j2", runs=runs, user=session.get("user"))
+        return render_template("runs.html.j2", runs=runs,
+                               user=session.get("user"), active="runs")
 
     @app.get("/runs/<int:run_id>")
     @require_login
@@ -225,7 +233,7 @@ def create_app() -> Flask:
         return render_template(
             "run_detail.html.j2",
             run=run, breaks=breaks, user=session.get("user"),
-            status_filter=status_filter,
+            status_filter=status_filter, active="runs",
         )
 
     @app.get("/runs/<int:run_id>/export")
@@ -269,7 +277,7 @@ def create_app() -> Flask:
             abort(404)
         saved = request.args.get("saved") == "1"
         return render_template("break_detail.html.j2", brk=brk,
-                               user=session.get("user"), saved=saved)
+                               user=session.get("user"), saved=saved, active="runs")
 
     @app.post("/runs/<int:run_id>/breaks/<int:break_id>")
     @require_login

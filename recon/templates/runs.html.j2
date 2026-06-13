@@ -1,62 +1,74 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<title>recon · run history</title>
-<style>
-  body { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; margin: 0; color: #1f2328; }
-  .nav { background: #fff; border-bottom: 1px solid #d1d9e0; padding: 10px 24px; display: flex; align-items: center; gap: 20px; }
-  .nav a { color: #1f2328; text-decoration: none; font-size: 14px; }
-  .nav a:hover { color: #0969da; }
-  .nav .brand { font-weight: 700; font-size: 16px; }
-  .nav .logout { margin-left: auto; color: #59636e; }
-  .content { padding: 24px; }
-  h1 { font-size: 20px; margin: 0 0 20px; }
-  table { border-collapse: collapse; width: 100%; font-size: 13px; }
-  th, td { border: 1px solid #d1d9e0; padding: 6px 10px; text-align: left; }
-  th { background: #f6f8fa; font-weight: 600; }
-  tr:hover td { background: #f6f8fa; }
-  .badge { display: inline-block; padding: 1px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
-  .badge.MATCH { background: #dafbe1; color: #116329; }
-  .badge.DIFF  { background: #fff1c2; color: #7d4e00; }
-  .badge.ERROR { background: #ffebe9; color: #cf222e; }
-  a { color: #0969da; }
-  .empty { color: #59636e; margin-top: 40px; text-align: center; }
-</style>
-</head>
-<body>
-<nav class="nav">
-  <span class="brand">recon</span>
-  <a href="/">Compare</a>
-  <a href="/batch">Batch</a>
-  <a href="/runs">History</a>
-  <a href="/logout" class="logout">Sign out ({{ user }})</a>
-</nav>
+{% extends "_base.html.j2" %}
+{% block title %}Run history{% endblock %}
+
+{% block content %}
+<div class="top-bar">
+  <div class="breadcrumb">
+    <span class="cur">Run history</span>
+  </div>
+  <div class="top-bar-right">
+    <a href="/" class="btn btn-primary btn-sm">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      New comparison
+    </a>
+  </div>
+</div>
+
 <div class="content">
-  <h1>Run history</h1>
   {% if runs %}
-  <table>
-    <tr>
-      <th>#</th><th>Job</th><th>Source</th><th>Target</th>
-      <th>Status</th><th>Matched</th><th>Breaks</th><th>Run at</th><th></th>
-    </tr>
-    {% for r in runs %}
-    <tr>
-      <td>{{ r.id }}</td>
-      <td>{{ r.job_name }}</td>
-      <td>{{ r.source }}</td>
-      <td>{{ r.target }}</td>
-      <td><span class="badge {{ r.status }}">{{ r.status }}</span></td>
-      <td>{{ r.matched }} / {{ r.total_a }}</td>
-      <td>{{ r.mismatches + r.only_in_a + r.only_in_b }}</td>
-      <td>{{ r.ran_at }}</td>
-      <td><a href="/runs/{{ r.id }}">view</a></td>
-    </tr>
-    {% endfor %}
-  </table>
+  {% set total = runs|length %}
+  {% set n_match = runs|selectattr('status','equalto','MATCH')|list|length %}
+  {% set n_diff  = runs|selectattr('status','equalto','DIFF') |list|length %}
+  {% set n_err   = runs|selectattr('status','equalto','ERROR')|list|length %}
+
+  <div class="stats">
+    <div class="stat"><div class="v">{{ total }}</div><div class="l">Total runs</div></div>
+    <div class="stat"><div class="v" style="color:var(--green);">{{ n_match }}</div><div class="l">Clean</div></div>
+    <div class="stat"><div class="v" style="color:var(--amber);">{{ n_diff }}</div><div class="l">With breaks</div></div>
+    {% if n_err %}<div class="stat"><div class="v" style="color:var(--red);">{{ n_err }}</div><div class="l">Errors</div></div>{% endif %}
+  </div>
+
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Job</th>
+          <th>Source</th>
+          <th>Target</th>
+          <th>Status</th>
+          <th>Matched</th>
+          <th>Breaks</th>
+          <th>Run at</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in runs %}
+        <tr>
+          <td class="mono" style="color:var(--text3);">{{ r.id }}</td>
+          <td style="font-weight:500;">{{ r.job_name }}</td>
+          <td class="mono" style="color:var(--text2);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{{ r.source }}">{{ r.source }}</td>
+          <td class="mono" style="color:var(--text2);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{{ r.target }}">{{ r.target }}</td>
+          <td><span class="badge status-{{ r.status }}">{{ r.status }}</span></td>
+          <td>{{ r.matched }} / {{ r.total_a }}</td>
+          <td>
+            {% set breaks = r.mismatches + r.only_in_a + r.only_in_b %}
+            {% if breaks > 0 %}<span style="font-weight:600;color:var(--amber);">{{ breaks }}</span>{% else %}<span style="color:var(--text3);">0</span>{% endif %}
+          </td>
+          <td style="color:var(--text2);white-space:nowrap;">{{ r.ran_at }}</td>
+          <td><a href="/runs/{{ r.id }}" class="link">View</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
   {% else %}
-  <div class="empty">No runs yet. <a href="/">Run a comparison</a> to get started.</div>
+  <div class="empty">
+    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+    <h3>No runs yet</h3>
+    <p>Run a <a href="/" class="link">comparison</a> to get started.</p>
+  </div>
   {% endif %}
 </div>
-</body>
-</html>
+{% endblock %}
