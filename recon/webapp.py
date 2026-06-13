@@ -149,15 +149,21 @@ def create_app() -> Flask:
     @require_login
     def batch_template():
         from flask import Response
-        csv_content = (
-            "source,target\n"
-            "/data/trades_oms_jan.csv,/data/trades_prime_jan.csv\n"
-            "/data/positions_fund1.xlsx,/data/positions_custodian_fund1.xlsx\n"
-            "/data/cash_nostro_jan.csv,/data/cash_vostro_jan.csv\n"
-        )
+        from .batch import write_template_xlsx
+        import io
+        buf = io.BytesIO()
+        with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
+            tmp_path = Path(tmp.name)
+        try:
+            write_template_xlsx(tmp_path)
+            buf.write(tmp_path.read_bytes())
+        finally:
+            tmp_path.unlink(missing_ok=True)
+        buf.seek(0)
         return Response(
-            csv_content, mimetype="text/csv",
-            headers={"Content-Disposition": "attachment; filename=batch_manifest_template.csv"},
+            buf.read(),
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": "attachment; filename=batch_manifest_template.xlsx"},
         )
 
     @app.post("/batch/load-manifest")
