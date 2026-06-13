@@ -142,7 +142,7 @@ def create_app() -> Flask:
     @app.get("/batch")
     @require_login
     def batch_form():
-        return render_template("batch.html.j2", form={},
+        return render_template("batch.html.j2", form={}, form_rows=None,
                                user=session.get("user"), active="batch")
 
     @app.get("/batch/template")
@@ -150,67 +150,66 @@ def create_app() -> Flask:
     def batch_template():
         from flask import Response
         csv_content = (
-            "trade_id,trade_date,counterparty,instrument,notional,currency,status\n"
-            "T001,2024-01-15,Goldman Sachs,AAPL US Equity,1000000.00,USD,confirmed\n"
-            "T002,2024-01-15,JPMorgan,EUR/USD Spot,2500000.00,EUR,confirmed\n"
-            "T003,2024-01-15,Barclays,US 10Y Bond,5000000.00,USD,pending\n"
-            "T004,2024-01-15,Citibank,GBP/USD Spot,750000.00,GBP,confirmed\n"
+            "source,target\n"
+            "/data/trades_oms_jan.csv,/data/trades_prime_jan.csv\n"
+            "/data/positions_fund1.xlsx,/data/positions_custodian_fund1.xlsx\n"
+            "/data/cash_nostro_jan.csv,/data/cash_vostro_jan.csv\n"
         )
         return Response(
             csv_content, mimetype="text/csv",
-            headers={"Content-Disposition": "attachment; filename=recon_template.csv"},
+            headers={"Content-Disposition": "attachment; filename=batch_manifest_template.csv"},
         )
+
+    @app.post("/batch/load-manifest")
+    @require_login
+    def batch_load_manifest():
+        from flask import jsonify
+        from .batch import ManifestError, load_manifest
+        f = request.files.get("manifest")
+        if not f or not f.filename:
+            return jsonify({"error": "No file uploaded."}), 400
+        suffix = Path(secure_filename(f.filename)).suffix.lower()
+        if suffix not in (".csv", ".xlsx"):
+            return jsonify({"error": "Manifest must be a .csv or .xlsx file."}), 400
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+            f.save(tmp.name)
+            tmp_path = Path(tmp.name)
+        try:
+            pairs = load_manifest(tmp_path)
+            return jsonify({"pairs": [{"source": s, "target": t} for s, t in pairs]})
+        except ManifestError as e:
+            return jsonify({"error": str(e)}), 400
+        finally:
+            tmp_path.unlink(missing_ok=True)
 
     @app.post("/batch")
     @require_login
     def batch_run():
         form = request.form.to_dict()
-        source_files = request.files.getlist("source")
-        target_files = request.files.getlist("target")
-        file_pairs = [
-            (sf, tf) for sf, tf in zip(source_files, target_files)
-            if sf and sf.filename and tf and tf.filename
-        ]
+        sources = request.form.getlist("source")
+        targets = request.form.getlist("target")
+        rows = [(s.strip(), t.strip()) for s, t in zip(sources, targets)]
+        pairs = [(s, t) for s, t in rows if s or t]
 
         def form_error(message, status=400):
-            return render_template("batch.html.j2", form=form, error=message,
+            return render_template("batch.html.j2", form=form,
+                                   form_rows=rows, error=message,
                                    user=session.get("user"), active="batch"), status
 
-        if not file_pairs:
-            return form_error("Please upload at least one source/target file pair.")
+        if not pairs:
+            return form_error("Please enter at least one source/target pair.")
+        for n, (s, t) in enumerate(pairs, start=1):
+            if not s or not t:
+                return form_error(f"Row {n} needs both a source and a target path.")
         try:
             tolerance = float(form.get("tolerance") or 0.0)
         except ValueError:
             return form_error("Tolerance must be a number.")
 
-        key = form.get("key", "").strip() or None
-        ignore = form.get("ignore", "").strip() or None
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            items = []
-            for n, (sf, tf) in enumerate(file_pairs, start=1):
-                sub = Path(tmpdir) / str(n)
-                sub.mkdir()
-                path_a = sub / secure_filename(sf.filename)
-                path_b = sub / secure_filename(tf.filename)
-                sf.save(path_a)
-                tf.save(path_b)
-                item = BatchItem(index=n, source=sf.filename, target=tf.filename)
-                try:
-                    try:
-                        item.result = compare_paths(
-                            path_a, path_b,
-                            key=key, ignore=ignore, tolerance=tolerance,
-                            a_name=sf.filename, b_name=tf.filename,
-                        )
-                    except CompareError:
-                        item.result = compare_paths(
-                            path_a, path_b,
-                            a_name=sf.filename, b_name=tf.filename,
-                        )
-                except (LoadError, ReconError, OSError) as e:
-                    item.error = str(e)
-                items.append(item)
+        items = run_batch(pairs,
+                          key=form.get("key", "").strip() or None,
+                          ignore=form.get("ignore", "").strip() or None,
+                          tolerance=tolerance)
 
         for item in items:
             if isinstance(item.result, ReconResult):

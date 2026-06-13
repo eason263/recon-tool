@@ -1,36 +1,6 @@
 {% extends "_base.html.j2" %}
 {% block title %}Batch{% endblock %}
 
-{% block head %}
-<style>
-.drop-zone {
-  border: 2px dashed var(--border2);
-  border-radius: var(--r);
-  background: var(--surface2);
-  transition: border-color 150ms, background 150ms;
-  cursor: pointer;
-  position: relative;
-}
-.drop-zone:hover, .drop-zone.drag-over {
-  border-color: var(--blue);
-  background: var(--blue-l);
-}
-.drop-zone input[type=file] {
-  position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
-  border: none; box-shadow: none; background: none; padding: 0;
-}
-.drop-zone .dz-inner {
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 4px; padding: 10px 8px; pointer-events: none;
-}
-.drop-zone .dz-icon { color: var(--text3); }
-.drop-zone .dz-label { font-size: 12px; font-weight: 500; color: var(--text2); text-align: center; }
-.drop-zone .dz-hint { font-size: 11px; color: var(--text3); }
-.drop-zone .dz-chosen { font-size: 12px; font-weight: 600; color: var(--blue); word-break: break-all; text-align: center; }
-.pair-row td { vertical-align: top; }
-</style>
-{% endblock %}
-
 {% block content %}
 <div class="top-bar">
   <div class="breadcrumb">
@@ -45,11 +15,11 @@
   </div>
 </div>
 
-<div class="content" style="max-width:960px;">
+<div class="content" style="max-width:940px;">
   <div class="ph">
     <div class="ph-left">
       <h1>Batch reconciliation</h1>
-      <div class="sub">Upload source and target file pairs (CSV or XLSX). Options apply to every pair. For CLI use: <code style="font-family:monospace;font-size:12px;background:#F1F5F9;padding:1px 5px;border-radius:3px;">recon batch manifest.xlsx</code></div>
+      <div class="sub">Enter source/target file paths (server-side paths). For large batches, upload a manifest CSV/XLSX to auto-fill all rows at once.</div>
     </div>
   </div>
 
@@ -57,34 +27,72 @@
   <div class="alert alert-err">{{ error }}</div>
   {% endif %}
 
+  <!-- ── Bulk import ── -->
+  <div class="card" style="margin-bottom:16px;">
+    <div class="card-head">
+      <span class="card-title">Bulk import from manifest</span>
+      <span style="font-size:12px;color:var(--text3);">Two columns: <code style="font-size:11px;background:var(--surface2);padding:1px 5px;border-radius:3px;">source, target</code> — CSV or XLSX</span>
+    </div>
+    <div class="card-body" style="padding:14px 20px;">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <input type="file" id="manifest-file" accept=".csv,.xlsx"
+               style="flex:1;min-width:200px;max-width:420px;padding:6px 10px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;font-family:var(--font);cursor:pointer;">
+        <button type="button" id="load-manifest" class="btn btn-ghost">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Load pairs
+        </button>
+        <span id="manifest-status" style="font-size:13px;"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Pairs table ── -->
   <div class="card">
     <div class="card-head">
       <span class="card-title">File pairs</span>
-      <span style="font-size:12px;color:var(--text3);">CSV and XLSX supported</span>
+      <span id="pair-count" style="font-size:12px;color:var(--text3);"></span>
     </div>
 
-    <form method="post" action="/batch" enctype="multipart/form-data" id="batch-form">
+    <form method="post" action="/batch" id="batch-form">
       <div style="overflow-x:auto;">
-        <table id="pairs-table" style="border-radius:0;box-shadow:none;border:none;">
+        <table id="pairs" style="border-radius:0;box-shadow:none;border:none;">
           <thead>
             <tr>
-              <th style="width:36px;text-align:center;">#</th>
-              <th>Source file</th>
-              <th>Target file</th>
-              <th style="width:40px;"></th>
+              <th style="width:40px;text-align:right;">#</th>
+              <th>Source file path</th>
+              <th>Target file path</th>
+              <th style="width:36px;"></th>
             </tr>
           </thead>
-          <tbody id="pairs-body">
-            <!-- rows injected by JS -->
+          <tbody>
+            {% for s, t in form_rows or [("", ""), ("", ""), ("", "")] %}
+            <tr>
+              <td class="idx" style="text-align:right;color:var(--text3);font-size:12px;width:40px;padding:6px 10px;"></td>
+              <td style="padding:4px 8px;">
+                <input type="text" name="source" value="{{ s }}" placeholder="/absolute/path/to/source.csv"
+                       style="border:none;box-shadow:none;padding:7px 8px;font-size:13px;font-family:var(--mono);">
+              </td>
+              <td style="padding:4px 8px;">
+                <input type="text" name="target" value="{{ t }}" placeholder="/absolute/path/to/target.csv"
+                       style="border:none;box-shadow:none;padding:7px 8px;font-size:13px;font-family:var(--mono);">
+              </td>
+              <td style="text-align:center;padding:4px 6px;">
+                <button type="button" class="del" title="Remove"
+                        style="border:none;background:none;color:var(--text3);cursor:pointer;font-size:18px;padding:2px 6px;border-radius:4px;line-height:1;"
+                        onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text3)'">×</button>
+              </td>
+            </tr>
+            {% endfor %}
           </tbody>
         </table>
       </div>
 
-      <div style="padding:12px 20px;border-top:1px solid var(--border);">
+      <div style="padding:10px 16px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px;">
         <button type="button" id="add-row" class="btn btn-ghost btn-sm">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          Add pair
+          Add row
         </button>
+        <button type="button" id="clear-rows" class="btn btn-ghost btn-sm" style="color:var(--text3);">Clear all</button>
       </div>
 
       <div style="padding:0 20px 20px;">
@@ -111,7 +119,7 @@
           </label>
         </fieldset>
 
-        <button class="btn btn-primary" type="submit" id="submit-btn">
+        <button class="btn btn-primary" type="submit">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
           Run batch
         </button>
@@ -121,110 +129,104 @@
 </div>
 
 <script>
-const tbody = document.getElementById("pairs-body");
-const INIT_ROWS = 3;
+const tbody = document.querySelector("#pairs tbody");
 
-function makeDropZone(name) {
-  const wrap = document.createElement("div");
-  wrap.className = "drop-zone";
-  wrap.innerHTML = `
-    <input type="file" name="${name}" accept=".csv,.xlsx">
-    <div class="dz-inner">
-      <svg class="dz-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-      <span class="dz-label">Click to upload</span>
-      <span class="dz-hint">CSV or XLSX</span>
-    </div>`;
-
-  const inp = wrap.querySelector("input");
-  inp.addEventListener("change", () => {
-    const inner = wrap.querySelector(".dz-inner");
-    if (inp.files.length) {
-      inner.innerHTML = `<span class="dz-chosen">${inp.files[0].name}</span>`;
-    } else {
-      inner.innerHTML = `
-        <svg class="dz-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-        <span class="dz-label">Click to upload</span>
-        <span class="dz-hint">CSV or XLSX</span>`;
-    }
+function makeRow(src, tgt) {
+  const tr = document.createElement("tr");
+  tr.innerHTML = `
+    <td class="idx" style="text-align:right;color:var(--text3);font-size:12px;width:40px;padding:6px 10px;"></td>
+    <td style="padding:4px 8px;">
+      <input type="text" name="source" value="${esc(src)}" placeholder="/absolute/path/to/source.csv"
+             style="border:none;box-shadow:none;padding:7px 8px;font-size:13px;font-family:var(--mono);width:100%;">
+    </td>
+    <td style="padding:4px 8px;">
+      <input type="text" name="target" value="${esc(tgt)}" placeholder="/absolute/path/to/target.csv"
+             style="border:none;box-shadow:none;padding:7px 8px;font-size:13px;font-family:var(--mono);width:100%;">
+    </td>
+    <td style="text-align:center;padding:4px 6px;">
+      <button type="button" class="del" title="Remove"
+              style="border:none;background:none;color:var(--text3);cursor:pointer;font-size:18px;padding:2px 6px;border-radius:4px;line-height:1;"
+              onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text3)'">×</button>
+    </td>`;
+  tr.querySelector(".del").addEventListener("click", () => {
+    if (tbody.querySelectorAll("tr").length > 1) { tr.remove(); renumber(); }
   });
+  return tr;
+}
 
-  ["dragenter","dragover"].forEach(ev => {
-    wrap.addEventListener(ev, e => { e.preventDefault(); wrap.classList.add("drag-over"); });
-  });
-  ["dragleave","drop"].forEach(ev => {
-    wrap.addEventListener(ev, () => wrap.classList.remove("drag-over"));
-  });
-
-  return wrap;
+function esc(s) {
+  return (s || "").replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");
 }
 
 function renumber() {
-  tbody.querySelectorAll(".pair-row").forEach((tr, i) => {
-    tr.querySelector(".row-num").textContent = i + 1;
+  tbody.querySelectorAll("tr").forEach((tr, i) => {
+    const cell = tr.querySelector(".idx");
+    if (cell) cell.textContent = i + 1;
+  });
+  const n = tbody.querySelectorAll("tr").length;
+  document.getElementById("pair-count").textContent = n + (n === 1 ? " pair" : " pairs");
+}
+
+function bindExistingDeletes() {
+  tbody.querySelectorAll(".del").forEach(btn => {
+    btn.addEventListener("click", () => {
+      if (tbody.querySelectorAll("tr").length > 1) { btn.closest("tr").remove(); renumber(); }
+    });
   });
 }
 
-function addRow() {
-  const tr = document.createElement("tr");
-  tr.className = "pair-row";
-
-  const idxTd = document.createElement("td");
-  idxTd.style.cssText = "text-align:center;color:var(--text3);font-size:12px;padding:8px 4px;";
-  idxTd.innerHTML = `<span class="row-num"></span>`;
-
-  const srcTd = document.createElement("td");
-  srcTd.style.cssText = "padding:8px 12px;";
-  srcTd.appendChild(makeDropZone("source"));
-
-  const tgtTd = document.createElement("td");
-  tgtTd.style.cssText = "padding:8px 12px;";
-  tgtTd.appendChild(makeDropZone("target"));
-
-  const delTd = document.createElement("td");
-  delTd.style.cssText = "text-align:center;padding:8px 4px;";
-  const delBtn = document.createElement("button");
-  delBtn.type = "button";
-  delBtn.title = "Remove row";
-  delBtn.style.cssText = "border:none;background:none;color:var(--text3);cursor:pointer;font-size:18px;padding:4px 8px;border-radius:4px;line-height:1;";
-  delBtn.textContent = "×";
-  delBtn.onmouseover = () => delBtn.style.color = "var(--red)";
-  delBtn.onmouseout  = () => delBtn.style.color = "var(--text3)";
-  delBtn.addEventListener("click", () => {
-    if (tbody.querySelectorAll(".pair-row").length > 1) {
-      tr.remove();
-      renumber();
-    }
-  });
-  delTd.appendChild(delBtn);
-
-  tr.append(idxTd, srcTd, tgtTd, delTd);
-  tbody.appendChild(tr);
+document.getElementById("add-row").addEventListener("click", () => {
+  tbody.appendChild(makeRow("", ""));
   renumber();
-}
+  tbody.lastElementChild.querySelector("input").focus();
+});
 
-// Initialise table
-for (let i = 0; i < INIT_ROWS; i++) addRow();
-document.getElementById("add-row").addEventListener("click", () => { addRow(); });
+document.getElementById("clear-rows").addEventListener("click", () => {
+  if (!confirm("Clear all rows?")) return;
+  tbody.innerHTML = "";
+  tbody.appendChild(makeRow("", ""));
+  renumber();
+});
 
-// Validate before submit
-document.getElementById("batch-form").addEventListener("submit", function(e) {
-  const rows = tbody.querySelectorAll(".pair-row");
-  let hasAtLeastOne = false;
-  for (const row of rows) {
-    const inputs = row.querySelectorAll("input[type=file]");
-    const srcOk = inputs[0].files.length > 0;
-    const tgtOk = inputs[1].files.length > 0;
-    if (srcOk && tgtOk) { hasAtLeastOne = true; continue; }
-    if (srcOk !== tgtOk) {
-      e.preventDefault();
-      alert("Each row needs both a source and a target file.");
+// ── Manifest upload ──────────────────────────────────────────────
+document.getElementById("load-manifest").addEventListener("click", async () => {
+  const fileInput = document.getElementById("manifest-file");
+  const status = document.getElementById("manifest-status");
+  if (!fileInput.files.length) {
+    status.textContent = "Please select a manifest file first.";
+    status.style.color = "var(--red)";
+    return;
+  }
+  status.textContent = "Loading…";
+  status.style.color = "var(--text3)";
+
+  const fd = new FormData();
+  fd.append("manifest", fileInput.files[0]);
+
+  try {
+    const resp = await fetch("/batch/load-manifest", { method: "POST", body: fd });
+    const data = await resp.json();
+    if (data.error) {
+      status.textContent = "Error: " + data.error;
+      status.style.color = "var(--red)";
       return;
     }
-  }
-  if (!hasAtLeastOne) {
-    e.preventDefault();
-    alert("Please upload at least one source/target pair.");
+    // Replace table contents with loaded pairs
+    tbody.innerHTML = "";
+    data.pairs.forEach(p => tbody.appendChild(makeRow(p.source, p.target)));
+    // Keep at least one blank row if empty
+    if (!data.pairs.length) tbody.appendChild(makeRow("", ""));
+    renumber();
+    status.textContent = `✓ Loaded ${data.pairs.length} pairs`;
+    status.style.color = "var(--green)";
+    fileInput.value = "";
+  } catch (err) {
+    status.textContent = "Network error — try again.";
+    status.style.color = "var(--red)";
   }
 });
+
+bindExistingDeletes();
+renumber();
 </script>
 {% endblock %}
